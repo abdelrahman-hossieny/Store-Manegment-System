@@ -13,10 +13,12 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 
+import java.time.LocalDate;
+
 public class Main extends Application {
 
-    private static final String USERNAME = "abdelrahman";
-    private static final String PASSWORD = "123";
+    private static final String USERNAME = "a";
+    private static final String PASSWORD = "a";
 
     private BorderPane mainLayout;
     private Scene mainScene;
@@ -30,6 +32,9 @@ public class Main extends Application {
     public void start(Stage primaryStage) {
         stage = primaryStage;
 
+        // Set the application icon
+        stage.getIcons().add(new Image(getClass().getResourceAsStream("/7656399.png")));
+
         // Show login page on application start
         stage.setTitle("Login");
         Scene loginScene = createLoginScene();
@@ -38,82 +43,84 @@ public class Main extends Application {
     }
 
     private Scene createLoginScene() {
-        Label titleLabel = new Label("Welcome to Store Management");
-        titleLabel.setFont(Font.font("Arial", FontWeight.BOLD, 24));
-        titleLabel.setTextFill(Color.web("#2c3e50"));
+        Label titleLabel = new Label("Welcome to Store Management System");
+        styleLabel(titleLabel, 30, "#2c3e50", true);
 
         Label usernameLabel = new Label("Username:");
-        usernameLabel.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
-        usernameLabel.setTextFill(Color.web("#34495e"));
+        styleLabel(usernameLabel, 18, "#34495e", true);
 
-        TextField usernameField = new TextField();
-        usernameField.setPromptText("Enter your username");
+        TextField usernameField = createStyledTextField("Enter your username");
 
         Label passwordLabel = new Label("Password:");
-        passwordLabel.setFont(Font.font("Arial", FontWeight.NORMAL, 16));
-        passwordLabel.setTextFill(Color.web("#34495e"));
+        styleLabel(passwordLabel, 18, "#34495e", true);
 
-        PasswordField passwordField = new PasswordField();
-        passwordField.setPromptText("Enter your password");
-
-        Button loginButton = new Button("Login");
-        loginButton.setFont(Font.font("Arial", FontWeight.BOLD, 16));
-        loginButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white;");
+        PasswordField passwordField = createStyledPasswordField("Enter your password");
 
         Label messageLabel = new Label();
-        messageLabel.setFont(Font.font("Arial", FontWeight.NORMAL, 14));
-        messageLabel.setTextFill(Color.RED);
+        styleLabel(messageLabel, 14, "red", false);
 
+        Button loginButton = createStyledButton("Login");
+        loginButton.setMaxWidth(200);
+        loginButton.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10;");
+        loginButton.setOnMouseEntered(e -> loginButton.setStyle("-fx-background-color: #34495e; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10;"));
+        loginButton.setOnMouseExited(e -> loginButton.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10;"));
         loginButton.setOnAction(event -> {
-            String inputUsername = usernameField.getText();
-            String inputPassword = passwordField.getText();
+            String inputUsername = usernameField.getText().trim();
+            String inputPassword = passwordField.getText().trim();
 
-            if (inputUsername.equals(USERNAME) && inputPassword.equals(PASSWORD)) {
-                // Successful login
+            if (inputUsername.isEmpty() || inputPassword.isEmpty()) {
+                messageLabel.setText("Please fill in all fields!");
+            } else if (inputUsername.equals(USERNAME) && inputPassword.equals(PASSWORD)) {
                 stage.setTitle("Store Management System");
                 initializeMainPage();
                 stage.setScene(mainScene);
             } else {
-                // Show error message
                 messageLabel.setText("Invalid username or password!");
             }
         });
 
-        VBox loginForm = new VBox(10, titleLabel, usernameLabel, usernameField, passwordLabel, passwordField, loginButton, messageLabel);
-        loginForm.setAlignment(Pos.CENTER);
-        loginForm.setPadding(new Insets(20));
-        loginForm.setStyle("-fx-background-color: #ecf0f1; -fx-border-radius: 10; -fx-padding: 20;");
+        VBox formLayout = new VBox(20, titleLabel, usernameLabel, usernameField, passwordLabel, passwordField, loginButton, messageLabel);
+        formLayout.setAlignment(Pos.CENTER);
 
-        StackPane root = new StackPane(loginForm);
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #2c3e50, #34495e);");
-        stage.setTitle("Store Management System");
-        stage.getIcons().add(new Image("7656399.png"));
+        StackPane cardPane = new StackPane(formLayout);
+        cardPane.setStyle("-fx-background-color: white; -fx-padding: 30; -fx-border-radius: 20; -fx-background-radius: 20; "
+                + "-fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.25), 20, 0, 0, 10);");
 
-        return new Scene(root, 400, 300);
+        StackPane root = new StackPane(cardPane);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #e0f7fa, #ffffff);");
+        root.setPadding(new Insets(20));
+
+        return new Scene(root, 1024, 768);
     }
 
     private void initializeMainPage() {
-        // Create the main layout
         mainLayout = new BorderPane();
-
-        // Create sidebar navigation
         VBox sidebar = createSidebar();
-
-        // Set the default page (Home)
         mainLayout.setLeft(sidebar);
+
         showHomePage();
 
-        // Create and set the main scene
         mainScene = new Scene(mainLayout, 1024, 768);
     }
 
     private VBox createSidebar() {
-        Button homeButton = new Button("Home");
-        Button productsButton = new Button("Products");
-        Button ordersButton = new Button("Orders");
-        Button customersButton = new Button("Customers");
+        Button homeButton = createStyledButton("Home");
+        homeButton.setOnAction(e -> showHomePage());
 
-        // Styling buttons
+        Button productsButton = createStyledButton("Products");
+        productsButton.setOnAction(e -> showProductsPage());
+
+        Button ordersButton = createStyledButton("Orders");
+        ordersButton.setOnAction(e -> showOrdersPage());
+
+        Button customersButton = createStyledButton("Customers");
+        customersButton.setOnAction(e -> showCustomersPage());
+
+        Button signOutButton = createStyledSignOutButton("Sign Out");
+        signOutButton.setOnAction(e -> {
+            stage.setTitle("Login");
+            stage.setScene(createLoginScene());
+        });
         for (Button button : new Button[]{homeButton, productsButton, ordersButton, customersButton}) {
             button.setMaxWidth(Double.MAX_VALUE);
             button.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10;");
@@ -121,35 +128,35 @@ public class Main extends Application {
             button.setOnMouseExited(e -> button.setStyle("-fx-background-color: #2c3e50; -fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10;"));
         }
 
-        // Button actions
-        homeButton.setOnAction(e -> showHomePage());
-        productsButton.setOnAction(e -> showProductsPage());
-        ordersButton.setOnAction(e -> showOrdersPage());
-        customersButton.setOnAction(e -> showCustomersPage());
-
-        VBox sidebar = new VBox(10, homeButton, productsButton, ordersButton, customersButton);
+        VBox sidebar = new VBox(15, homeButton, productsButton, ordersButton, customersButton, signOutButton);
         sidebar.setAlignment(Pos.TOP_CENTER);
-        sidebar.setStyle("-fx-background-color: #2c3e50;");
-        sidebar.setPadding(new Insets(10));
+        sidebar.setStyle("-fx-background-color: #2c3e50; -fx-padding: 20;");
+        sidebar.setPrefWidth(200);
 
         return sidebar;
     }
 
     private void showHomePage() {
         Label homeLabel = new Label("Welcome to the Home Page");
-        homeLabel.setFont(Font.font("Arial", FontWeight.BOLD, 24));
-        homeLabel.setTextFill(Color.web("#34495e"));
+        styleLabel(homeLabel, 24, "#34495e", true);
 
         VBox homePage = new VBox(homeLabel);
         homePage.setAlignment(Pos.CENTER);
-
         mainLayout.setCenter(homePage);
     }
 
     private void showProductsPage() {
         TableView<Product> productTable = createProductTable();
-        VBox productsPage = new VBox(10, createSearchBar("Search Products"), productTable);
-//        productsPage.setAlignment(Pos.CENTER);
+        ObservableList<Product> products = FXCollections.observableArrayList(
+                new Product("Laptop", 1500.00, 10, "Electronics"),
+                new Product("Smartphone", 700.00, 25, "Electronics"),
+                new Product("Table", 120.00, 15, "Furniture")
+        );
+
+        productTable.setItems(products);
+
+        HBox searchBar = createSearchBar("Search Products", productTable, products, "name", "category");
+        VBox productsPage = new VBox(10, searchBar, productTable);
         productsPage.setPadding(new Insets(10));
 
         mainLayout.setCenter(productsPage);
@@ -157,8 +164,15 @@ public class Main extends Application {
 
     private void showOrdersPage() {
         TableView<Order> orderTable = createOrderTable();
-        VBox ordersPage = new VBox(10, createSearchBar("Search Orders"), orderTable);
-//        ordersPage.setAlignment(Pos.CENTER);
+        ObservableList<Order> orders = FXCollections.observableArrayList(
+                new Order(101, "John Doe", LocalDate.of(2024, 11, 25), 350.75),
+                new Order(102, "Jane Smith", LocalDate.of(2024, 11, 26), 120.50)
+        );
+
+        orderTable.setItems(orders);
+
+        HBox searchBar = createSearchBar("Search Orders", orderTable, orders, "customerName");
+        VBox ordersPage = new VBox(10, searchBar, orderTable);
         ordersPage.setPadding(new Insets(10));
 
         mainLayout.setCenter(ordersPage);
@@ -166,85 +180,77 @@ public class Main extends Application {
 
     private void showCustomersPage() {
         TableView<Customer> customerTable = createCustomerTable();
-        VBox customersPage = new VBox(10, createSearchBar("Search Customers"), customerTable);
-//        customersPage.setAlignment(Pos.CENTER);
+        ObservableList<Customer> customers = FXCollections.observableArrayList(
+                new Customer("John Doe", "john@example.com", "johndoe", 5, "Active"),
+                new Customer("Jane Smith", "jane@example.com", "janesmith", 2, "Inactive")
+        );
+
+        customerTable.setItems(customers);
+
+        HBox searchBar = createSearchBar("Search Customers", customerTable, customers, "name", "email", "username");
+        VBox customersPage = new VBox(10, searchBar, customerTable);
         customersPage.setPadding(new Insets(10));
 
         mainLayout.setCenter(customersPage);
     }
 
-    private HBox createSearchBar(String placeholder) {
-        TextField searchField = new TextField();
-        searchField.setPromptText(placeholder);
-        searchField.setMaxWidth(200);
+    private <T> HBox createSearchBar(String placeholder, TableView<T> table, ObservableList<T> originalData, String... filterableProperties) {
+        TextField searchField = createStyledTextField(placeholder);
+        Button searchButton = createStyledButton("Search");
 
-        Button searchButton = new Button("Search");
-        searchButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white;");
+        searchButton.setOnAction(event -> {
+            String searchTerm = searchField.getText().trim().toLowerCase();
 
-        searchButton.setOnAction(e -> {
-            // Perform search based on the field's text
-            System.out.println("Searching for: " + searchField.getText());
-            // Add filter logic here (to be implemented)
+            if (searchTerm.isEmpty()) {
+                table.setItems(originalData);
+            } else {
+                ObservableList<T> filteredList = FXCollections.observableArrayList();
+
+                for (T item : originalData) {
+                    for (String property : filterableProperties) {
+                        try {
+                            // Use reflection to dynamically get property values
+                            String value = item.getClass().getMethod("get" + capitalize(property)).invoke(item).toString().toLowerCase();
+                            if (value.contains(searchTerm)) {
+                                filteredList.add(item);
+                                break; // Match found, move to the next item
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                }
+
+                table.setItems(filteredList);
+            }
+        });
+
+        searchField.textProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue.isEmpty()) {
+                table.setItems(originalData);
+            }
         });
 
         HBox searchBox = new HBox(10, searchField, searchButton);
-        searchBox.setAlignment(Pos.CENTER_LEFT);
-        searchBox.setPadding(new Insets(10));
+        searchBox.setAlignment(Pos.CENTER);
+
         return searchBox;
     }
 
-    private TableView<Customer> createCustomerTable() {
-        TableView<Customer> table = new TableView<>();
-        ObservableList<Customer> customers = FXCollections.observableArrayList(
-                new Customer("Inna Facey", "ifacey@twitpic.com", "ifacey0", 0, "enabled"),
-                new Customer("Lauritz Tuny", "ltuny1@alibaba.com", "ltuny1", 0, "enabled"),
-                new Customer("Micky Mee", "mmee2@qfc2.com", "mmee2", 4, "enabled")
-        );
 
-        TableColumn<Customer, String> nameCol = new TableColumn<>("Name/Surname");
-        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
-
-        TableColumn<Customer, String> emailCol = new TableColumn<>("Email");
-        emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
-
-        TableColumn<Customer, String> usernameCol = new TableColumn<>("Username");
-        usernameCol.setCellValueFactory(new PropertyValueFactory<>("username"));
-
-        TableColumn<Customer, Integer> ordersCol = new TableColumn<>("Orders");
-        ordersCol.setCellValueFactory(new PropertyValueFactory<>("orders"));
-
-        TableColumn<Customer, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
-
-        table.getColumns().addAll(nameCol, emailCol, usernameCol, ordersCol, statusCol);
-        table.setItems(customers);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-
-        return table;
+    private String capitalize(String str) {
+        return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
 
     private TableView<Product> createProductTable() {
         TableView<Product> table = new TableView<>();
-        ObservableList<Product> products = FXCollections.observableArrayList(
-                new Product("Product 1", "Description of Product 1", 50, 9.99),
-                new Product("Product 2", "Description of Product 2", 20, 14.99),
-                new Product("Product 3", "Description of Product 3", 10, 19.99)
+
+        table.getColumns().addAll(
+                createColumn("Name", "name"),
+                createColumn("Price", "price"),
+                createColumn("Quantity", "quantity"),
+                createColumn("Category", "category")
         );
-
-        TableColumn<Product, String> nameCol = new TableColumn<>("Name");
-        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
-
-        TableColumn<Product, String> descCol = new TableColumn<>("Description");
-        descCol.setCellValueFactory(new PropertyValueFactory<>("description"));
-
-        TableColumn<Product, Integer> quantityCol = new TableColumn<>("Quantity");
-        quantityCol.setCellValueFactory(new PropertyValueFactory<>("quantity"));
-
-        TableColumn<Product, Double> priceCol = new TableColumn<>("Price");
-        priceCol.setCellValueFactory(new PropertyValueFactory<>("price"));
-
-        table.getColumns().addAll(nameCol, descCol, quantityCol, priceCol);
-        table.setItems(products);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         return table;
@@ -252,46 +258,146 @@ public class Main extends Application {
 
     private TableView<Order> createOrderTable() {
         TableView<Order> table = new TableView<>();
-        ObservableList<Order> orders = FXCollections.observableArrayList(
-                new Order("Order1", "Inna Facey", "Product 1", 10, "Completed"),
-                new Order("Order2", "Lauritz Tuny", "Product 2", 5, "Pending"),
-                new Order("Order3", "Micky Mee", "Product 3", 2, "Shipped")
+
+        table.getColumns().addAll(
+                createColumn("Order ID", "orderId"),
+                createColumn("Customer Name", "customerName"),
+                createColumn("Order Date", "orderDate"),
+                createColumn("Total Amount", "totalAmount")
         );
-
-        TableColumn<Order, String> orderIdCol = new TableColumn<>("Order ID");
-        orderIdCol.setCellValueFactory(new PropertyValueFactory<>("orderId"));
-
-        TableColumn<Order, String> customerCol = new TableColumn<>("Customer");
-        customerCol.setCellValueFactory(new PropertyValueFactory<>("customer"));
-
-        TableColumn<Order, String> productCol = new TableColumn<>("Product");
-        productCol.setCellValueFactory(new PropertyValueFactory<>("product"));
-
-        TableColumn<Order, Integer> quantityCol = new TableColumn<>("Quantity");
-        quantityCol.setCellValueFactory(new PropertyValueFactory<>("quantity"));
-
-        TableColumn<Order, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(new PropertyValueFactory<>("status"));
-
-        table.getColumns().addAll(orderIdCol, customerCol, productCol, quantityCol, statusCol);
-        table.setItems(orders);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         return table;
     }
 
-    public static class Customer {
-        private final String name;
-        private final String email;
-        private final String username;
-        private final int orders;
-        private final String status;
+    private TableView<Customer> createCustomerTable() {
+        TableView<Customer> table = new TableView<>();
 
-        public Customer(String name, String email, String username, int orders, String status) {
+        table.getColumns().addAll(
+                createColumn("Name", "name"),
+                createColumn("Email", "email"),
+                createColumn("Username", "username"),
+                createColumn("Orders", "ordersCount"),
+                createColumn("Status", "status")
+        );
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
+        return table;
+    }
+
+    private <T> TableColumn<T, ?> createColumn(String title, String property) {
+        TableColumn<T, Object> column = new TableColumn<>(title);
+        column.setCellValueFactory(new PropertyValueFactory<>(property));
+        return column;
+    }
+
+    private TextField createStyledTextField(String placeholder) {
+        TextField textField = new TextField();
+        textField.setPromptText(placeholder);
+        textField.setStyle("-fx-background-radius: 15; -fx-padding: 10;");
+        return textField;
+    }
+
+    private PasswordField createStyledPasswordField(String placeholder) {
+        PasswordField passwordField = new PasswordField();
+        passwordField.setPromptText(placeholder);
+        passwordField.setStyle("-fx-background-radius: 15; -fx-padding: 10;");
+        return passwordField;
+    }
+
+    private Button createStyledButton(String text) {
+        Button button = new Button(text);
+        button.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        button.setTextFill(Color.WHITE);
+        button.setStyle("-fx-background-color: #2980b9; -fx-background-radius: 15;");
+        return button;
+    }
+
+    private Button createStyledSignOutButton(String text) {
+        Button button = new Button(text);
+        button.setFont(Font.font("Arial", FontWeight.BOLD, 14));
+        button.setTextFill(Color.WHITE);
+        button.setStyle("-fx-background-color: #c0392b; -fx-background-radius: 15;");
+        return button;
+    }
+
+    private void styleLabel(Label label, int fontSize, String color, boolean bold) {
+        label.setFont(Font.font("Arial", bold ? FontWeight.BOLD : FontWeight.NORMAL, fontSize));
+        label.setTextFill(Color.web(color));
+    }
+
+    public static class Product {
+        private String name;
+        private double price;
+        private int quantity;
+        private String category;
+
+        public Product(String name, double price, int quantity, String category) {
+            this.name = name;
+            this.price = price;
+            this.quantity = quantity;
+            this.category = category;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public double getPrice() {
+            return price;
+        }
+
+        public int getQuantity() {
+            return quantity;
+        }
+
+        public String getCategory() {
+            return category;
+        }
+    }
+
+    public static class Order {
+        private int orderId;
+        private String customerName;
+        private LocalDate orderDate;
+        private double totalAmount;
+
+        public Order(int orderId, String customerName, LocalDate orderDate, double totalAmount) {
+            this.orderId = orderId;
+            this.customerName = customerName;
+            this.orderDate = orderDate;
+            this.totalAmount = totalAmount;
+        }
+
+        public int getOrderId() {
+            return orderId;
+        }
+
+        public String getCustomerName() {
+            return customerName;
+        }
+
+        public LocalDate getOrderDate() {
+            return orderDate;
+        }
+
+        public double getTotalAmount() {
+            return totalAmount;
+        }
+    }
+
+    public static class Customer {
+        private String name;
+        private String email;
+        private String username;
+        private int ordersCount;
+        private String status;
+
+        public Customer(String name, String email, String username, int ordersCount, String status) {
             this.name = name;
             this.email = email;
             this.username = username;
-            this.orders = orders;
+            this.ordersCount = ordersCount;
             this.status = status;
         }
 
@@ -307,74 +413,8 @@ public class Main extends Application {
             return username;
         }
 
-        public int getOrders() {
-            return orders;
-        }
-
-        public String getStatus() {
-            return status;
-        }
-    }
-
-    public static class Product {
-        private final String name;
-        private final String description;
-        private final int quantity;
-        private final double price;
-
-        public Product(String name, String description, int quantity, double price) {
-            this.name = name;
-            this.description = description;
-            this.quantity = quantity;
-            this.price = price;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public String getDescription() {
-            return description;
-        }
-
-        public int getQuantity() {
-            return quantity;
-        }
-
-        public double getPrice() {
-            return price;
-        }
-    }
-
-    public static class Order {
-        private final String orderId;
-        private final String customer;
-        private final String product;
-        private final int quantity;
-        private final String status;
-
-        public Order(String orderId, String customer, String product, int quantity, String status) {
-            this.orderId = orderId;
-            this.customer = customer;
-            this.product = product;
-            this.quantity = quantity;
-            this.status = status;
-        }
-
-        public String getOrderId() {
-            return orderId;
-        }
-
-        public String getCustomer() {
-            return customer;
-        }
-
-        public String getProduct() {
-            return product;
-        }
-
-        public int getQuantity() {
-            return quantity;
+        public int getOrdersCount() {
+            return ordersCount;
         }
 
         public String getStatus() {
