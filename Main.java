@@ -12,7 +12,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
-
+import java.sql.*;
 import java.time.LocalDate;
 
 public class Main extends Application {
@@ -27,7 +27,6 @@ public class Main extends Application {
     public static void main(String[] args) {
         launch(args);
     }
-
     @Override
     public void start(Stage primaryStage) {
         stage = primaryStage;
@@ -92,7 +91,6 @@ public class Main extends Application {
 
         return new Scene(root, 1024, 768);
     }
-
     private void initializeMainPage() {
         mainLayout = new BorderPane();
         VBox sidebar = createSidebar();
@@ -102,7 +100,6 @@ public class Main extends Application {
 
         mainScene = new Scene(mainLayout, 1024, 768);
     }
-
     private VBox createSidebar() {
         Button homeButton = createStyledButton("Home");
         homeButton.setOnAction(e -> showHomePage());
@@ -135,7 +132,6 @@ public class Main extends Application {
 
         return sidebar;
     }
-
     private void showHomePage() {
         Label homeLabel = new Label("Welcome to the Home Page");
         styleLabel(homeLabel, 24, "#34495e", true);
@@ -144,14 +140,32 @@ public class Main extends Application {
         homePage.setAlignment(Pos.CENTER);
         mainLayout.setCenter(homePage);
     }
-
+    // Add this helper method to establish a database connection with Windows Authentication
+    private Connection getConnection() throws SQLException {
+        String url = "jdbc:sqlserver://yourhost;databaseName=store_db;integratedSecurity=true;trustServerCertificate=true;";
+        return DriverManager.getConnection(url);
+    }
+    // Update the `showProductsPage` method
     private void showProductsPage() {
         TableView<Product> productTable = createProductTable();
-        ObservableList<Product> products = FXCollections.observableArrayList(
-                new Product("Laptop", 1500.00, 10, "Electronics"),
-                new Product("Smartphone", 700.00, 25, "Electronics"),
-                new Product("Table", 120.00, 15, "Furniture")
-        );
+        ObservableList<Product> products = FXCollections.observableArrayList();
+
+        // Fetch data from the database
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT name, price, quantity, category FROM products")) {
+
+            while (rs.next()) {
+                products.add(new Product(
+                        rs.getString("name"),
+                        rs.getDouble("price"),
+                        rs.getInt("quantity"),
+                        rs.getString("category")
+                ));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
         productTable.setItems(products);
 
@@ -161,13 +175,25 @@ public class Main extends Application {
 
         mainLayout.setCenter(productsPage);
     }
-
+    // Fetch orders from the database
     private void showOrdersPage() {
         TableView<Order> orderTable = createOrderTable();
-        ObservableList<Order> orders = FXCollections.observableArrayList(
-                new Order(101, "John Doe", LocalDate.of(2024, 11, 25), 350.75),
-                new Order(102, "Jane Smith", LocalDate.of(2024, 11, 26), 120.50)
-        );
+        ObservableList<Order> orders = FXCollections.observableArrayList();
+
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT id, customer_name, order_date, total_amount FROM orders")) {
+            while (rs.next()) {
+                orders.add(new Order(
+                        rs.getInt("id"),
+                        rs.getString("customer_name"),
+                        rs.getDate("order_date").toLocalDate(),
+                        rs.getDouble("total_amount")
+                ));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
         orderTable.setItems(orders);
 
@@ -177,13 +203,26 @@ public class Main extends Application {
 
         mainLayout.setCenter(ordersPage);
     }
-
+    // Fetch customers from the database
     private void showCustomersPage() {
         TableView<Customer> customerTable = createCustomerTable();
-        ObservableList<Customer> customers = FXCollections.observableArrayList(
-                new Customer("John Doe", "john@example.com", "johndoe", 5, "Active"),
-                new Customer("Jane Smith", "jane@example.com", "janesmith", 2, "Inactive")
-        );
+        ObservableList<Customer> customers = FXCollections.observableArrayList();
+
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT name, email, username, orders_count, status FROM customers")) {
+            while (rs.next()) {
+                customers.add(new Customer(
+                        rs.getString("name"),
+                        rs.getString("email"),
+                        rs.getString("username"),
+                        rs.getInt("orders_count"),
+                        rs.getString("status")
+                ));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
 
         customerTable.setItems(customers);
 
