@@ -404,231 +404,231 @@ public class Main extends Application {
 
 
 /********************************************************************************************************/
-/*                                                  *Orders*                                            */
-/********************************************************************************************************/
+    /*                                                  *Orders*                                            */
+    /********************************************************************************************************/
 
-private void showOrdersPage() {
-    TableView<Order> orderTable = createOrderTable();
-    ObservableList<Order> orders = FXCollections.observableArrayList();
+    private void showOrdersPage() {
+        TableView<Order> orderTable = createOrderTable();
+        ObservableList<Order> orders = FXCollections.observableArrayList();
 
-    // Fetch orders from the database
-    try (Connection conn = getConnection();
-         Statement stmt = conn.createStatement();
-         ResultSet rs = stmt.executeQuery("SELECT id, customer_name, order_date, total_amount FROM orders")) {
-        while (rs.next()) {
-            orders.add(new Order(
-                    rs.getInt("id"),
-                    rs.getString("customer_name"),
-                    rs.getDate("order_date").toLocalDate(),
-                    rs.getDouble("total_amount")
-            ));
+        // Fetch orders from the database
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT id, customer_name, order_date, total_amount FROM orders")) {
+            while (rs.next()) {
+                orders.add(new Order(
+                        rs.getInt("id"),
+                        rs.getString("customer_name"),
+                        rs.getDate("order_date").toLocalDate(),
+                        rs.getDouble("total_amount")
+                ));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
-    } catch (SQLException e) {
-        e.printStackTrace();
+
+        // Add Columns for TableView
+        TableColumn<Order, Integer> idCol = new TableColumn<>("Order ID");
+        idCol.setCellValueFactory(new PropertyValueFactory<>("orderId"));
+
+        TableColumn<Order, String> customerNameCol = new TableColumn<>("Customer Name");
+        customerNameCol.setCellValueFactory(new PropertyValueFactory<>("customerName"));
+
+        TableColumn<Order, LocalDate> orderDateCol = new TableColumn<>("Order Date");
+        orderDateCol.setCellValueFactory(new PropertyValueFactory<>("orderDate"));
+
+        TableColumn<Order, Double> totalAmountCol = new TableColumn<>("Total Amount");
+        totalAmountCol.setCellValueFactory(new PropertyValueFactory<>("totalAmount"));
+
+        // Edit Button Column
+        TableColumn<Order, Void> editCol = new TableColumn<>("Edit");
+        editCol.setCellFactory(param -> new TableCell<Order, Void>() {
+            private final Button editButton = new Button("Edit");
+
+            {
+                editButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white;");
+                editButton.setOnAction(e -> {
+                    Order selectedOrder = getTableView().getItems().get(getIndex());
+                    showEditOrderDialog(selectedOrder, orders);
+                });
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    setGraphic(editButton);
+                }
+            }
+        });
+
+        // Delete Button Column
+        TableColumn<Order, Void> deleteCol = new TableColumn<>("Delete");
+        deleteCol.setCellFactory(param -> new TableCell<Order, Void>() {
+            private final Button deleteButton = new Button("Delete");
+
+            {
+                deleteButton.setStyle("-fx-background-color: #DC3545; -fx-text-fill: white;");
+                deleteButton.setOnAction(e -> {
+                    Order selectedOrder = getTableView().getItems().get(getIndex());
+                    if (deleteOrderFromDatabase(selectedOrder)) {
+                        orders.remove(selectedOrder); // Update TableView after deletion
+                        orderTable.refresh(); // Refresh the TableView
+                    }
+                });
+            }
+
+            @Override
+            protected void updateItem(Void item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty) {
+                    setGraphic(null);
+                } else {
+                    setGraphic(deleteButton);
+                }
+            }
+        });
+
+        // Add Columns to TableView
+        orderTable.getColumns().setAll(idCol, customerNameCol, orderDateCol, totalAmountCol, editCol, deleteCol);
+        orderTable.setItems(orders);
+
+        // Search Field and Button
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search Orders");
+        searchField.setStyle("-fx-font-size: 14px; -fx-pref-width: 300px;");
+
+        Button searchButton = new Button("Search");
+        searchButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px;");
+        searchButton.setOnAction(e -> {
+            String query = searchField.getText().trim();
+            if (query.isEmpty()) {
+                orderTable.setItems(orders); // Reset table if query is empty
+            } else {
+                ObservableList<Order> filteredOrders = FXCollections.observableArrayList();
+                for (Order order : orders) {
+                    if (String.valueOf(order.getOrderId()).contains(query) ||
+                            order.getCustomerName().toLowerCase().contains(query.toLowerCase())) {
+                        filteredOrders.add(order);
+                    }
+                }
+                orderTable.setItems(filteredOrders);
+            }
+        });
+
+        // Add Order Button
+        Button addOrderButton = new Button("Add Order");
+        addOrderButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white; -fx-font-size: 14px;");
+        addOrderButton.setOnAction(e -> {
+            Order newOrder = showAddOrderDialog(orders);
+            if (newOrder != null) {
+                orders.add(newOrder); // Add the new order to the observable list
+                orderTable.refresh(); // Refresh the table to recognize the new item
+            }
+        });
+
+        // Top Bar Layout
+        HBox topBar = new HBox(10, searchField, searchButton, addOrderButton);
+        topBar.setAlignment(Pos.CENTER_LEFT);
+        topBar.setPadding(new Insets(10));
+
+        // Ensure TableView Resizes Correctly
+        VBox ordersPage = new VBox(10, topBar, orderTable);
+        ordersPage.setPadding(new Insets(10));
+        VBox.setVgrow(orderTable, Priority.ALWAYS); // Ensures the table expands to fill available space
+
+        mainLayout.setCenter(ordersPage);
     }
 
-    // Add Columns for TableView
-    TableColumn<Order, Integer> idCol = new TableColumn<>("Order ID");
-    idCol.setCellValueFactory(new PropertyValueFactory<>("orderId"));
 
-    TableColumn<Order, String> customerNameCol = new TableColumn<>("Customer Name");
-    customerNameCol.setCellValueFactory(new PropertyValueFactory<>("customerName"));
+    /************************          Helper Methods for orders          **************************/
 
-    TableColumn<Order, LocalDate> orderDateCol = new TableColumn<>("Order Date");
-    orderDateCol.setCellValueFactory(new PropertyValueFactory<>("orderDate"));
+    private void showEditOrderDialog(Order order, ObservableList<Order> orders) {
+        Stage dialog = new Stage();
+        dialog.setTitle("Edit Order");
+        dialog.setResizable(false);
 
-    TableColumn<Order, Double> totalAmountCol = new TableColumn<>("Total Amount");
-    totalAmountCol.setCellValueFactory(new PropertyValueFactory<>("totalAmount"));
+        // Fields for editing order details
+        TextField customerNameField = new TextField(order.getCustomerName());
+        customerNameField.setPromptText("Enter Customer Name");
+        customerNameField.setStyle("-fx-font-size: 14px;");
 
-    // Edit Button Column
-    TableColumn<Order, Void> editCol = new TableColumn<>("Edit");
-    editCol.setCellFactory(param -> new TableCell<Order, Void>() {
-        private final Button editButton = new Button("Edit");
+        DatePicker orderDatePicker = new DatePicker(order.getOrderDate());
+        orderDatePicker.setPromptText("Select Order Date");
+        orderDatePicker.setStyle("-fx-font-size: 14px;");
+        orderDatePicker.setPrefWidth(300); // Ensure same width as other fields
 
-        {
-            editButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white;");
-            editButton.setOnAction(e -> {
-                Order selectedOrder = getTableView().getItems().get(getIndex());
-                showEditOrderDialog(selectedOrder, orders);
-            });
-        }
+        TextField totalAmountField = new TextField(String.valueOf(order.getTotalAmount()));
+        totalAmountField.setPromptText("Enter Total Amount");
+        totalAmountField.setStyle("-fx-font-size: 14px;");
 
-        @Override
-        protected void updateItem(Void item, boolean empty) {
-            super.updateItem(item, empty);
-            if (empty) {
-                setGraphic(null);
-            } else {
-                setGraphic(editButton);
+        Button saveButton = new Button("Save");
+        saveButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white; -fx-font-size: 14px; -fx-pref-width: 100px;");
+        saveButton.setOnAction(e -> {
+            String customerName = customerNameField.getText();
+            LocalDate orderDate = orderDatePicker.getValue();
+            double totalAmount;
+
+            // Validate total amount input
+            try {
+                totalAmount = Double.parseDouble(totalAmountField.getText());
+            } catch (NumberFormatException ex) {
+                showAlert(Alert.AlertType.ERROR, "Invalid Input", "Total amount must be a valid number.");
+                return;
             }
-        }
-    });
 
-    // Delete Button Column
-    TableColumn<Order, Void> deleteCol = new TableColumn<>("Delete");
-    deleteCol.setCellFactory(param -> new TableCell<Order, Void>() {
-        private final Button deleteButton = new Button("Delete");
+            // Update the database
+            try (Connection conn = getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(
+                         "UPDATE orders SET customer_name = ?, order_date = ?, total_amount = ? WHERE id = ?")) {
+                pstmt.setString(1, customerName);
+                pstmt.setDate(2, Date.valueOf(orderDate));
+                pstmt.setDouble(3, totalAmount);
+                pstmt.setInt(4, order.getOrderId());
+                pstmt.executeUpdate();
 
-        {
-            deleteButton.setStyle("-fx-background-color: #DC3545; -fx-text-fill: white;");
-            deleteButton.setOnAction(e -> {
-                Order selectedOrder = getTableView().getItems().get(getIndex());
-                if (deleteOrderFromDatabase(selectedOrder)) {
-                    orders.remove(selectedOrder); // Update TableView after deletion
-                    orderTable.refresh(); // Refresh the TableView
-                }
-            });
-        }
+                // Update the TableView
+                order.setCustomerName(customerName);
+                order.setOrderDate(orderDate);
+                order.setTotalAmount(totalAmount);
+                orders.set(orders.indexOf(order), order);
 
-        @Override
-        protected void updateItem(Void item, boolean empty) {
-            super.updateItem(item, empty);
-            if (empty) {
-                setGraphic(null);
-            } else {
-                setGraphic(deleteButton);
+                showAlert(Alert.AlertType.INFORMATION, "Success", "Order updated successfully!");
+                dialog.close();
+            } catch (SQLException ex) {
+                showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to update order.");
+                ex.printStackTrace();
             }
-        }
-    });
+        });
 
-    // Add Columns to TableView
-    orderTable.getColumns().addAll(idCol, customerNameCol, orderDateCol, totalAmountCol, editCol, deleteCol);
-    orderTable.setItems(orders);
+        // Labels with bold styling
+        Label customerNameLabel = new Label("Customer Name:");
+        customerNameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
-    // Search Field and Button
-    TextField searchField = new TextField();
-    searchField.setPromptText("Search Orders");
-    searchField.setStyle("-fx-font-size: 14px; -fx-pref-width: 300px;");
+        Label orderDateLabel = new Label("Order Date:");
+        orderDateLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
-    Button searchButton = new Button("Search");
-    searchButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px;");
-    searchButton.setOnAction(e -> {
-        String query = searchField.getText().trim();
-        if (query.isEmpty()) {
-            orderTable.setItems(orders); // Reset table if query is empty
-        } else {
-            ObservableList<Order> filteredOrders = FXCollections.observableArrayList();
-            for (Order order : orders) {
-                if (String.valueOf(order.getOrderId()).contains(query) ||
-                        order.getCustomerName().toLowerCase().contains(query.toLowerCase())) {
-                    filteredOrders.add(order);
-                }
-            }
-            orderTable.setItems(filteredOrders);
-        }
-    });
+        Label totalAmountLabel = new Label("Total Amount:");
+        totalAmountLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
-    // Add Order Button
-    Button addOrderButton = new Button("Add Order");
-    addOrderButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white; -fx-font-size: 14px;");
-    addOrderButton.setOnAction(e -> {
-        Order newOrder = showAddOrderDialog(orders);
-        if (newOrder != null) {
-            orders.add(newOrder); // Add the new order to the observable list
-            orderTable.refresh(); // Refresh the table to recognize the new item
-        }
-    });
+        // Layout for the dialog
+        VBox layout = new VBox(15,
+                customerNameLabel, customerNameField,
+                orderDateLabel, orderDatePicker,
+                totalAmountLabel, totalAmountField,
+                saveButton
+        );
+        layout.setAlignment(Pos.CENTER);
+        layout.setPadding(new Insets(20));
+        layout.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #dcdcdc; -fx-border-radius: 5; -fx-border-width: 1;");
 
-    // Top Bar Layout
-    HBox topBar = new HBox(10, searchField, searchButton, addOrderButton);
-    topBar.setAlignment(Pos.CENTER_LEFT);
-    topBar.setPadding(new Insets(10));
-
-    // Ensure TableView Resizes Correctly
-    VBox ordersPage = new VBox(10, topBar, orderTable);
-    ordersPage.setPadding(new Insets(10));
-    VBox.setVgrow(orderTable, Priority.ALWAYS); // Ensures the table expands to fill available space
-
-    mainLayout.setCenter(ordersPage);
-}
-
-
-/************************          Helper Methods for orders          **************************/
-
-private void showEditOrderDialog(Order order, ObservableList<Order> orders) {
-    Stage dialog = new Stage();
-    dialog.setTitle("Edit Order");
-    dialog.setResizable(false);
-
-    // Fields for editing order details
-    TextField customerNameField = new TextField(order.getCustomerName());
-    customerNameField.setPromptText("Enter Customer Name");
-    customerNameField.setStyle("-fx-font-size: 14px;");
-
-    DatePicker orderDatePicker = new DatePicker(order.getOrderDate());
-    orderDatePicker.setPromptText("Select Order Date");
-    orderDatePicker.setStyle("-fx-font-size: 14px;");
-    orderDatePicker.setPrefWidth(300); // Ensure same width as other fields
-
-    TextField totalAmountField = new TextField(String.valueOf(order.getTotalAmount()));
-    totalAmountField.setPromptText("Enter Total Amount");
-    totalAmountField.setStyle("-fx-font-size: 14px;");
-
-    Button saveButton = new Button("Save");
-    saveButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white; -fx-font-size: 14px; -fx-pref-width: 100px;");
-    saveButton.setOnAction(e -> {
-        String customerName = customerNameField.getText();
-        LocalDate orderDate = orderDatePicker.getValue();
-        double totalAmount;
-
-        // Validate total amount input
-        try {
-            totalAmount = Double.parseDouble(totalAmountField.getText());
-        } catch (NumberFormatException ex) {
-            showAlert(Alert.AlertType.ERROR, "Invalid Input", "Total amount must be a valid number.");
-            return;
-        }
-
-        // Update the database
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(
-                     "UPDATE orders SET customer_name = ?, order_date = ?, total_amount = ? WHERE id = ?")) {
-            pstmt.setString(1, customerName);
-            pstmt.setDate(2, Date.valueOf(orderDate));
-            pstmt.setDouble(3, totalAmount);
-            pstmt.setInt(4, order.getOrderId());
-            pstmt.executeUpdate();
-
-            // Update the TableView
-            order.setCustomerName(customerName);
-            order.setOrderDate(orderDate);
-            order.setTotalAmount(totalAmount);
-            orders.set(orders.indexOf(order), order);
-
-            showAlert(Alert.AlertType.INFORMATION, "Success", "Order updated successfully!");
-            dialog.close();
-        } catch (SQLException ex) {
-            showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to update order.");
-            ex.printStackTrace();
-        }
-    });
-
-    // Labels with bold styling
-    Label customerNameLabel = new Label("Customer Name:");
-    customerNameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-
-    Label orderDateLabel = new Label("Order Date:");
-    orderDateLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-
-    Label totalAmountLabel = new Label("Total Amount:");
-    totalAmountLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-
-    // Layout for the dialog
-    VBox layout = new VBox(15,
-            customerNameLabel, customerNameField,
-            orderDateLabel, orderDatePicker,
-            totalAmountLabel, totalAmountField,
-            saveButton
-    );
-    layout.setAlignment(Pos.CENTER);
-    layout.setPadding(new Insets(20));
-    layout.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #dcdcdc; -fx-border-radius: 5; -fx-border-width: 1;");
-
-    // Scene and stage
-    Scene scene = new Scene(layout, 350, 400);
-    dialog.setScene(scene);
-    dialog.show();
-}
+        // Scene and stage
+        Scene scene = new Scene(layout, 350, 400);
+        dialog.setScene(scene);
+        dialog.show();
+    }
 
     private boolean deleteOrderFromDatabase(Order order) {
         try (Connection conn = getConnection();
@@ -666,7 +666,7 @@ private void showEditOrderDialog(Order order, ObservableList<Order> orders) {
         final Order[] newOrder = {null}; // Use an array to store the created order
 
         saveButton.setOnAction(e -> {
-            String customerName = customerNameField.getText();
+            String customerName = customerNameField.getText().trim();
             LocalDate orderDate = orderDatePicker.getValue();
             double totalAmount;
 
@@ -678,11 +678,29 @@ private void showEditOrderDialog(Order order, ObservableList<Order> orders) {
                 return;
             }
 
-            // Insert into the database
-            try (Connection conn = getConnection();
-                 PreparedStatement pstmt = conn.prepareStatement(
-                         "INSERT INTO orders (customer_name, order_date, total_amount) VALUES (?, ?, ?)",
-                         Statement.RETURN_GENERATED_KEYS)) {
+            try (Connection conn = getConnection()) {
+                // Check if customer exists
+                PreparedStatement checkStmt = conn.prepareStatement("SELECT id, orders_count FROM customers WHERE name = ?");
+                checkStmt.setString(1, customerName);
+                ResultSet rs = checkStmt.executeQuery();
+
+                int customerId;
+                int currentOrdersCount;
+
+                if (!rs.next()) {
+                    // Customer does not exist; prompt to add them first
+                    showAlert(Alert.AlertType.ERROR, "Customer Not Found", "The customer does not exist. Please add the customer first.");
+                    return;
+                } else {
+                    // Retrieve customer ID and orders count
+                    customerId = rs.getInt("id");
+                    currentOrdersCount = rs.getInt("orders_count");
+                }
+
+                // Insert the new order into the database
+                PreparedStatement pstmt = conn.prepareStatement(
+                        "INSERT INTO orders (customer_name, order_date, total_amount) VALUES (?, ?, ?)",
+                        Statement.RETURN_GENERATED_KEYS);
                 pstmt.setString(1, customerName);
                 pstmt.setDate(2, Date.valueOf(orderDate));
                 pstmt.setDouble(3, totalAmount);
@@ -695,10 +713,18 @@ private void showEditOrderDialog(Order order, ObservableList<Order> orders) {
                     newOrder[0] = new Order(orderId, customerName, orderDate, totalAmount);
                 }
 
+                // Update the customer's orders count
+                PreparedStatement updateStmt = conn.prepareStatement(
+                        "UPDATE customers SET orders_count = ? WHERE id = ?");
+                updateStmt.setInt(1, currentOrdersCount + 1);
+                updateStmt.setInt(2, customerId);
+                updateStmt.executeUpdate();
+
+                // Show success message and close dialog
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Order added successfully!");
                 dialog.close();
             } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to add order.");
+                showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to add order: " + ex.getMessage());
                 ex.printStackTrace();
             }
         });
@@ -731,87 +757,88 @@ private void showEditOrderDialog(Order order, ObservableList<Order> orders) {
 
         return newOrder[0]; // Return the created order, or null if creation failed
     }
+
 /********************************************************************************************************/
-/*                                                  *customer*                                          */
-/********************************************************************************************************/
+    /*                                                  *customer*                                          */
+    /********************************************************************************************************/
 // Fetch customers from the database
-private void showCustomersPage() {
-    TableView<Customer> customerTable = createCustomerTable();
-    ObservableList<Customer> customers = FXCollections.observableArrayList();
+    private void showCustomersPage() {
+        TableView<Customer> customerTable = createCustomerTable();
+        ObservableList<Customer> customers = FXCollections.observableArrayList();
 
-    // Fetch data from the database
-    try (Connection conn = getConnection();
-         Statement stmt = conn.createStatement();
-         ResultSet rs = stmt.executeQuery("SELECT id, name, email, username, orders_count, status FROM customers")) {
+        // Fetch data from the database
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT id, name, email, username, orders_count, status FROM customers")) {
 
-        while (rs.next()) {
-            customers.add(new Customer(
-                    rs.getInt("id"),               // ID
-                    rs.getString("name"),          // Name
-                    rs.getString("email"),         // Email
-                    rs.getString("username"),      // Username
-                    rs.getInt("orders_count"),     // Orders Count
-                    rs.getString("status")         // Status
-            ));
-        }
-    } catch (SQLException e) {
-        e.printStackTrace();
-    }
-
-    customerTable.setItems(customers);
-
-    // Search Field
-    TextField searchField = new TextField();
-    searchField.setPromptText("Search Customers");
-    searchField.setStyle("-fx-font-size: 14px; -fx-padding: 5px; -fx-border-radius: 5px; -fx-pref-width: 300px;");
-
-    // Search Button
-    Button searchButton = new Button("Search");
-    searchButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white; -fx-font-size: 14px; -fx-pref-width: 80px;");
-    searchButton.setOnAction(e -> {
-        String query = searchField.getText().toLowerCase().trim();
-        if (query.isEmpty()) {
-            customerTable.setItems(customers);
-        } else {
-            ObservableList<Customer> filteredCustomers = FXCollections.observableArrayList();
-            for (Customer customer : customers) {
-                if (customer.getName().toLowerCase().contains(query) ||
-                        customer.getEmail().toLowerCase().contains(query) ||
-                        customer.getUsername().toLowerCase().contains(query)) {
-                    filteredCustomers.add(customer);
-                }
+            while (rs.next()) {
+                customers.add(new Customer(
+                        rs.getInt("id"),               // ID
+                        rs.getString("name"),          // Name
+                        rs.getString("email"),         // Email
+                        rs.getString("username"),      // Username
+                        rs.getInt("orders_count"),     // Orders Count
+                        rs.getString("status")         // Status
+                ));
             }
-            customerTable.setItems(filteredCustomers);
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
-    });
 
-    // Add Customer Button
-    Button addCustomerButton = new Button("Add Customer");
-    addCustomerButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-pref-width: 120px;");
-    addCustomerButton.setOnAction(e -> showAddCustomerDialog(customers));
+        customerTable.setItems(customers);
 
-    // Add Top Bar (Search + Add Customer)
-    HBox topBar = new HBox(10, searchField, searchButton, addCustomerButton);
-    topBar.setAlignment(Pos.CENTER_LEFT);
-    topBar.setPadding(new Insets(10, 10, 10, 10));
-    HBox.setHgrow(searchField, Priority.ALWAYS);
+        // Search Field
+        TextField searchField = new TextField();
+        searchField.setPromptText("Search Customers");
+        searchField.setStyle("-fx-font-size: 14px; -fx-padding: 5px; -fx-border-radius: 5px; -fx-pref-width: 300px;");
 
-    // Add Buttons Column
-    addCustomerButtonsColumn(customerTable, customers);
+        // Search Button
+        Button searchButton = new Button("Search");
+        searchButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white; -fx-font-size: 14px; -fx-pref-width: 80px;");
+        searchButton.setOnAction(e -> {
+            String query = searchField.getText().toLowerCase().trim();
+            if (query.isEmpty()) {
+                customerTable.setItems(customers);
+            } else {
+                ObservableList<Customer> filteredCustomers = FXCollections.observableArrayList();
+                for (Customer customer : customers) {
+                    if (customer.getName().toLowerCase().contains(query) ||
+                            customer.getEmail().toLowerCase().contains(query) ||
+                            customer.getUsername().toLowerCase().contains(query)) {
+                        filteredCustomers.add(customer);
+                    }
+                }
+                customerTable.setItems(filteredCustomers);
+            }
+        });
 
-    // Spacer below the table
-    Region spacer = new Region();
-    spacer.setMinHeight(10);
+        // Add Customer Button
+        Button addCustomerButton = new Button("Add Customer");
+        addCustomerButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-pref-width: 120px;");
+        addCustomerButton.setOnAction(e -> showAddCustomerDialog(customers));
 
-    // Main Layout: Combine Top Bar, Table, and Spacer
-    VBox customersPage = new VBox(10, topBar, customerTable, spacer);
-    customersPage.setPadding(new Insets(10));
-    VBox.setVgrow(customerTable, Priority.ALWAYS);
-    VBox.setVgrow(spacer, Priority.NEVER);
+        // Add Top Bar (Search + Add Customer)
+        HBox topBar = new HBox(10, searchField, searchButton, addCustomerButton);
+        topBar.setAlignment(Pos.CENTER_LEFT);
+        topBar.setPadding(new Insets(10, 10, 10, 10));
+        HBox.setHgrow(searchField, Priority.ALWAYS);
 
-    // Set Customers Page in Main Layout
-    mainLayout.setCenter(customersPage);
-}
+        // Add Buttons Column
+        addCustomerButtonsColumn(customerTable, customers);
+
+        // Spacer below the table
+        Region spacer = new Region();
+        spacer.setMinHeight(10);
+
+        // Main Layout: Combine Top Bar, Table, and Spacer
+        VBox customersPage = new VBox(10, topBar, customerTable, spacer);
+        customersPage.setPadding(new Insets(10));
+        VBox.setVgrow(customerTable, Priority.ALWAYS);
+        VBox.setVgrow(spacer, Priority.NEVER);
+
+        // Set Customers Page in Main Layout
+        mainLayout.setCenter(customersPage);
+    }
 
     // Add Edit and Delete Buttons to Table
     private void addCustomerButtonsColumn(TableView<Customer> customerTable, ObservableList<Customer> customers) {
@@ -998,14 +1025,26 @@ private void showCustomersPage() {
 
     // Delete Customer from Database
     private void deleteCustomerFromDatabase(Customer customer) {
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement("DELETE FROM customers WHERE id = ?")) {
-            pstmt.setInt(1, customer.getId());
-            pstmt.executeUpdate();
+        try (Connection conn = getConnection()) {
+            // Delete all orders for this customer
+            PreparedStatement deleteOrdersStmt = conn.prepareStatement(
+                    "DELETE FROM orders WHERE customer_name = ?");
+            deleteOrdersStmt.setString(1, customer.getName());
+            deleteOrdersStmt.executeUpdate();
+
+            // Delete the customer
+            PreparedStatement deleteCustomerStmt = conn.prepareStatement(
+                    "DELETE FROM customers WHERE id = ?");
+            deleteCustomerStmt.setInt(1, customer.getId());
+            deleteCustomerStmt.executeUpdate();
+
+            showAlert(Alert.AlertType.INFORMATION, "Success", "Customer and their orders deleted successfully!");
         } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to delete customer: " + e.getMessage());
             e.printStackTrace();
         }
     }
+
     private boolean showConfirmationDialog(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
         alert.setTitle(title);
