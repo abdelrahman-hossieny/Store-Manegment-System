@@ -1,19 +1,31 @@
 package org.example.marketdemo;
 
 import java.time.LocalDate;
+import java.util.Date;
 
 public class Order {
     private int orderId;
+    private int customerId;
     private String customerName;
-    private LocalDate orderDate;
+    private Date orderDate;
     private double totalAmount;
 
-    public Order(int orderId, String customerName, LocalDate orderDate, double totalAmount) {
+    public Order() {
+    }
+
+    public Order(int orderId, String customerName, Date orderDate, double totalAmount) {
         this.orderId = orderId;
         this.customerName = customerName;
         this.orderDate = orderDate;
         this.totalAmount = totalAmount;
     }
+    public Order(int orderId, int customerId, Date orderDate, double totalAmount) {
+        this.orderId = orderId;
+        this.customerId = customerId;
+        this.orderDate = orderDate;
+        this.totalAmount = totalAmount;
+    }
+
 
     // Getter and Setters
     public int getOrderId() {
@@ -32,11 +44,11 @@ public class Order {
         this.customerName = customerName;
     }
 
-    public LocalDate getOrderDate() {
+    public Date getOrderDate() {
         return orderDate;
     }
 
-    public void setOrderDate(LocalDate orderDate) {
+    public void setOrderDate(Date orderDate) {
         this.orderDate = orderDate;
     }
 
