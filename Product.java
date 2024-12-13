@@ -1,20 +1,27 @@
 package org.example.marketdemo;
 
 public class Product {
+
+    private int productId;
     private String name;
     private double price;
     private int quantity;
     private String category;
 
     // Constructor
-    public Product(String name, double price, int quantity, String category) {
+    public Product(int productId, String name, double price, int quantity, String category) {
+        this.productId = productId;
         this.name = name;
         this.price = price;
         this.quantity = quantity;
         this.category = category;
     }
 
-    // Getters and Setters
+    // Getters
+    public int getProductId() {
+        return productId;
+    }
+
     public String getName() {
         return name;
     }
@@ -29,6 +36,11 @@ public class Product {
 
     public String getCategory() {
         return category;
+    }
+
+    // Setters
+    public void setProductId(int productId) {
+        this.productId = productId;
     }
 
     public void setName(String name) {
