@@ -15,9 +15,14 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
+import javafx.util.StringConverter;
+
+import javax.xml.transform.Result;
 import java.sql.*;
 import java.time.LocalDate;
+import java.util.LinkedList;
 import java.util.Optional;
+import java.util.Queue;
 
 public class Main extends Application {
 
@@ -176,7 +181,6 @@ public class Main extends Application {
         return sidebar;
     }
 
-
     private void showHomePage() {
         Label homeLabel = new Label("Welcome to the Home Page");
         styleLabel(homeLabel, 24, "#34495e", true);
@@ -191,7 +195,8 @@ public class Main extends Application {
         return DriverManager.getConnection(url);
     }
     // Update the `showProductsPage` method
-    private void showProductsPage() throws SQLException{
+// Update the showProductsPage method
+    private void showProductsPage() throws SQLException {
         TableView<Product> productTable = new TableView<>();
         // Fetch data from the database
 
@@ -200,6 +205,9 @@ public class Main extends Application {
         productTable.setItems(productsList);
 
         // Define table columns
+        TableColumn<Product, String> idCol = new TableColumn<>("productId");
+        idCol.setCellValueFactory(new PropertyValueFactory<>("productId"));
+
         TableColumn<Product, String> nameCol = new TableColumn<>("Name");
         nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
 
@@ -244,10 +252,13 @@ public class Main extends Application {
             {
                 deleteButton.setStyle("-fx-background-color: #DC3545; -fx-text-fill: white; -fx-padding: 5 10 5 10;");
                 deleteButton.setOnAction(e -> {
-                    Product product = getTableView().getItems().get(getIndex());
-                    if (deleteProductFromDatabase(product)) {
-                        productsList.remove(product); // Remove from ObservableList
+                    Product selectedProduct = getTableView().getItems().get(getIndex());
+                    boolean confirmed = showConfirmationDialog("Delete Product", "Are you sure you want to delete this product?");
+                    if (confirmed) {
+                        deleteProductFromDatabase(selectedProduct);
+                        productsList.remove(selectedProduct); // Remove from ObservableList
                     }
+
                 });
             }
 
@@ -263,7 +274,7 @@ public class Main extends Application {
         });
 
         // Add columns to the table
-        productTable.getColumns().addAll(nameCol, priceCol, quantityCol, categoryCol, editCol, deleteCol);
+        productTable.getColumns().addAll(idCol, nameCol, priceCol, quantityCol, categoryCol, editCol, deleteCol);
 
         // Search Bar
         TextField searchField = new TextField();
@@ -276,12 +287,18 @@ public class Main extends Application {
         searchButton.setOnAction(e -> {
             String searchQuery = searchField.getText().trim().toLowerCase();
             if (!searchQuery.isEmpty()) {
-                ObservableList<Product> filteredProducts = productsList.filtered(product ->
-                        product.getName().toLowerCase().contains(searchQuery) ||
-                                product.getCategory().toLowerCase().contains(searchQuery));
+                ObservableList<Product> filteredProducts = FXCollections.observableArrayList();
+                for (Product product : productsList) {
+                    if (product.getName().toLowerCase().contains(searchQuery)
+                            || product.getCategory().toLowerCase().contains(searchQuery)) {
+                        filteredProducts.add(product);
+                    }
+                }
                 productTable.setItems(filteredProducts);
+                productTable.refresh();
             } else {
                 productTable.setItems(productsList); // Reset to all productsList
+                productTable.refresh();
             }
         });
 
@@ -304,26 +321,24 @@ public class Main extends Application {
 
         mainLayout.setCenter(productsPage);
     }
-    private boolean deleteProductFromDatabase(Product product) {
+
+    private void deleteProductFromDatabase(Product product) {
         String query = "DELETE FROM products WHERE name = ? AND price = ? AND quantity = ? AND category = ?";
+        try (Connection conn = getConnection()) {
+            // Delete the product
+            PreparedStatement deleteproductStmt = conn.prepareStatement(
+                    "DELETE FROM products WHERE id = ?");
+            deleteproductStmt.setInt(1, product.getProductId());
+            deleteproductStmt.executeUpdate();
 
-        try (Connection conn = getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(query)) {
-
-            // Filling parameters
-            pstmt.setString(1, product.getName());
-            pstmt.setDouble(2, product.getPrice());
-            pstmt.setInt(3, product.getQuantity());
-            pstmt.setString(4, product.getCategory());
-
-            int rowsAffected = pstmt.executeUpdate();
-            return rowsAffected > 0; // Return true if a row (at least) was deleted
+            showAlert(Alert.AlertType.INFORMATION, "Success", "products and their orders deleted successfully!");
         } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to delete product: " + e.getMessage());
             e.printStackTrace();
-            return false; // Return false if there was an error
-        }
-    }
 
+        }
+
+    }
 
     // Show Product Dialog when editing existing product or adding new one.
     private void showAddProductDialog(Product productToEdit, ObservableList<Product> productsList, TableView<Product> productTable) {
@@ -348,56 +363,82 @@ public class Main extends Application {
         saveButton.setPrefWidth(100);
         saveButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 8 15 8 15; -fx-border-radius: 5; -fx-background-radius: 5;");
         saveButton.setOnAction(e -> {
+            // text fields values
+            String name = nameField.getText().trim();
+            String category = categoryField.getText().trim();
+            if (name.isEmpty() || category.isEmpty()) {
+                showAlert(Alert.AlertType.ERROR, "Validation Error", "All fields must be filled.");
+                return;
+            }
+            int quantity;
+            double price;
             try {
-                String name = nameField.getText().trim();
-                double price = Double.parseDouble(priceField.getText().trim());
-                int quantity = Integer.parseInt(quantityField.getText().trim());
-                String category = categoryField.getText().trim();
-
-                if (productToEdit == null) {
-                    // Add New Product
-                    try (Connection conn = getConnection();
-                         PreparedStatement pstmt = conn.prepareStatement(
-                                 "INSERT INTO products (name, price, quantity, category) VALUES (?, ?, ?, ?)")) {
-                        pstmt.setString(1, name);
-                        pstmt.setDouble(2, price);
-                        pstmt.setInt(3, quantity);
-                        pstmt.setString(4, category);
-                        pstmt.executeUpdate();
-
-                        // Update TableView
-                        productsList.add(new Product(name, price, quantity, category));
-                    }
-                } else {
-                    // Edit Existing Product
-                    try (Connection conn = getConnection();
-                         PreparedStatement pstmt = conn.prepareStatement(
-                                 "UPDATE products SET name = ?, price = ?, quantity = ?, category = ? WHERE name = ? AND price = ? AND quantity = ? AND category = ?")) {
-                        pstmt.setString(1, name);
-                        pstmt.setDouble(2, price);
-                        pstmt.setInt(3, quantity);
-                        pstmt.setString(4, category);
-                        pstmt.setString(5, productToEdit.getName());
-                        pstmt.setDouble(6, productToEdit.getPrice());
-                        pstmt.setInt(7, productToEdit.getQuantity());
-                        pstmt.setString(8, productToEdit.getCategory());
-                        pstmt.executeUpdate();
-
-                        // Update TableView
-                        productToEdit.setName(name);
-                        productToEdit.setPrice(price);
-                        productToEdit.setQuantity(quantity);
-                        productToEdit.setCategory(category);
-                        productTable.refresh(); // Refresh the table to reflect the changes
-                    }
-                }
-
-                dialog.close();
-            } catch (SQLException ex) {
-                ex.printStackTrace();
+                quantity = Integer.parseInt(quantityField.getText().trim());
+                price = Double.parseDouble(priceField.getText().trim());
             } catch (NumberFormatException ex) {
                 showAlert(Alert.AlertType.ERROR, "Invalid Input", "Please enter valid numeric values for price and quantity.");
+                return;
             }
+
+            // chose add new product or edit
+            if (productToEdit == null) {
+                // Add New Product
+                try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(
+                        "INSERT INTO products (name, price, quantity, category) VALUES (?, ?, ?, ?)")) {
+                    // store new product in database
+                    pstmt.setString(1, name);
+                    pstmt.setDouble(2, price);
+                    pstmt.setInt(3, quantity);
+                    pstmt.setString(4, category);
+                    pstmt.executeUpdate();
+
+                    // get id of new product
+                    PreparedStatement getProductId = conn.prepareStatement("SELECT id FROM products WHERE CAST(name AS NVARCHAR(MAX)) = ? ");
+                    getProductId.setString(1, name);
+                    ResultSet res = getProductId.executeQuery();
+                    res.next();
+                    int id = res.getInt(1);
+
+                    // Update TableView
+                    productsList.add(new Product( id, name, price, quantity, category)); ///update zero
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            } else {
+                // Edit Existing Product
+                try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(
+                        "UPDATE products SET name = ?, price = ?, quantity = ?, category = ? WHERE CAST(name AS NVARCHAR(MAX)) = ? AND price = ? AND quantity = ? AND CAST(category AS NVARCHAR(MAX))= ?")) {
+                    pstmt.setString(1, name);
+                    pstmt.setDouble(2, price);
+                    pstmt.setInt(3, quantity);
+                    pstmt.setString(4, category);
+                    pstmt.setString(5, productToEdit.getName());
+                    pstmt.setDouble(6, productToEdit.getPrice());
+                    pstmt.setInt(7, productToEdit.getQuantity());
+                    pstmt.setString(8, productToEdit.getCategory());
+
+                    int rowsAffected = pstmt.executeUpdate();
+                    if (rowsAffected == 0) {
+                        showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to update customer in the database.");
+                        return;
+                    }
+
+                    // Update TableView
+                    productToEdit.setName(name);
+                    productToEdit.setPrice(price);
+                    productToEdit.setQuantity(quantity);
+                    productToEdit.setCategory(category);
+                    productsList.set(productsList.indexOf(productToEdit), productToEdit);
+                    productTable.refresh(); // Refresh the table to reflect the changes
+
+                    showAlert(Alert.AlertType.INFORMATION, "Success", "Customer updated successfully!");
+
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            dialog.close();
+
         });
 
         // Styling
@@ -427,17 +468,17 @@ public class Main extends Application {
 
     private void showOrdersPage() {
         TableView<Order> orderTable = createOrderTable();
-        ObservableList<Order> orders = FXCollections.observableArrayList();
+        ObservableList<Order> ordersList = FXCollections.observableArrayList();
 
-        // Fetch orders from the database
+        // Fetch ordersList from the database
         try (Connection conn = getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery("SELECT o.id, c.name, o.order_date, o.total_amount FROM orders o JOIN customers c ON o.customer_id = c.id")) {
             while (rs.next()) {
-                orders.add(new Order(
+                ordersList.add(new Order(
                         rs.getInt("id"),
                         rs.getString("name"),
-                        rs.getDate("order_date").toLocalDate(),
+                        rs.getDate("order_date"),
                         rs.getDouble("total_amount")
                 ));
             }
@@ -458,43 +499,29 @@ public class Main extends Application {
         TableColumn<Order, Double> totalAmountCol = new TableColumn<>("Total Amount");
         totalAmountCol.setCellValueFactory(new PropertyValueFactory<>("totalAmount"));
 
-        // Edit Button Column
-        TableColumn<Order, Void> editCol = new TableColumn<>("Edit");
-        editCol.setCellFactory(param -> new TableCell<>() {
-            private final Button editButton = new Button("Edit");
-
-            {
-                editButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white;");
-                editButton.setOnAction(e -> {
-                    Order selectedOrder = getTableView().getItems().get(getIndex());
-                    showEditOrderDialog(selectedOrder, orders);
-                });
-            }
-
-            @Override
-            protected void updateItem(Void item, boolean empty) {
-                super.updateItem(item, empty);
-                if (empty) {
-                    setGraphic(null);
-                } else {
-                    setGraphic(editButton);
-                }
-            }
-        });
 
         // Delete Button Column
         TableColumn<Order, Void> deleteCol = new TableColumn<>("Delete");
-        deleteCol.setCellFactory(param -> new TableCell<Order, Void>() {
+        deleteCol.setCellFactory(param -> new TableCell<>() {
             private final Button deleteButton = new Button("Delete");
 
             {
                 deleteButton.setStyle("-fx-background-color: #DC3545; -fx-text-fill: white;");
                 deleteButton.setOnAction(e -> {
-                    Order selectedOrder = getTableView().getItems().get(getIndex());
-                    if (deleteOrderFromDatabase(selectedOrder)) {
-                        orders.remove(selectedOrder); // Update TableView after deletion
-                        orderTable.refresh(); // Refresh the TableView
-                    }
+                    // Confirmation Dialog for Removing Order
+                    Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+                    alert.setTitle("Confirm Deletion");
+                    alert.setHeaderText("Are you sure you want to delete this order?");
+                    alert.setContentText("You can't retrieve it back.");
+                    alert.showAndWait().ifPresent(response -> {
+                        if (response == ButtonType.OK) {
+                            Order selectedOrder = getTableView().getItems().get(getIndex());
+                            if (deleteOrderFromDatabase(selectedOrder)) {
+                                ordersList.remove(selectedOrder); // Update TableView after deletion
+                                orderTable.refresh(); // Refresh the TableView
+                            }
+                        }
+                    });
                 });
             }
 
@@ -510,8 +537,8 @@ public class Main extends Application {
         });
 
         // Add Columns to TableView
-        orderTable.getColumns().setAll(idCol, customerNameCol, orderDateCol, totalAmountCol, editCol, deleteCol);
-        orderTable.setItems(orders);
+        orderTable.getColumns().setAll(idCol, customerNameCol, orderDateCol, totalAmountCol, deleteCol);
+        orderTable.setItems(ordersList);
 
         // Search Field and Button
         TextField searchField = new TextField();
@@ -523,16 +550,18 @@ public class Main extends Application {
         searchButton.setOnAction(e -> {
             String query = searchField.getText().trim();
             if (query.isEmpty()) {
-                orderTable.setItems(orders); // Reset table if query is empty
+                orderTable.setItems(ordersList); // Reset table if query is empty
+                orderTable.refresh();
             } else {
                 ObservableList<Order> filteredOrders = FXCollections.observableArrayList();
-                for (Order order : orders) {
+                for (Order order : ordersList) {
                     if (String.valueOf(order.getOrderId()).contains(query) ||
                             order.getCustomerName().toLowerCase().contains(query.toLowerCase())) {
                         filteredOrders.add(order);
                     }
                 }
                 orderTable.setItems(filteredOrders);
+                orderTable.refresh();
             }
         });
 
@@ -540,11 +569,7 @@ public class Main extends Application {
         Button addOrderButton = new Button("Add Order");
         addOrderButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white; -fx-font-size: 14px;");
         addOrderButton.setOnAction(e -> {
-            Order newOrder = showAddOrderDialog(getProductList());
-            if (newOrder != null) {
-                orders.add(newOrder); // Add the new order to the observable list
-                orderTable.refresh(); // Refresh the table to recognize the new item
-            }
+            showAddOrderDialog(ordersList, getProductList(), orderTable);
         });
 
         // Top Bar Layout
@@ -562,92 +587,6 @@ public class Main extends Application {
 
 
     /************************          Helper Methods for orders          **************************/
-
-    private void showEditOrderDialog(Order order, ObservableList<Order> orders) {
-        Stage dialog = new Stage();
-        dialog.setTitle("Edit Order");
-        dialog.setResizable(false);
-
-        // Fields for editing order details
-        TextField customerNameField = new TextField(order.getCustomerName());
-        customerNameField.setPromptText("Enter Customer Name");
-        customerNameField.setStyle("-fx-font-size: 14px;");
-
-        DatePicker orderDatePicker = new DatePicker(order.getOrderDate());
-        orderDatePicker.setPromptText("Select Order Date");
-        orderDatePicker.setStyle("-fx-font-size: 14px;");
-        orderDatePicker.setPrefWidth(300); // Ensure same width as other fields
-
-        TextField totalAmountField = new TextField(String.valueOf(order.getTotalAmount()));
-        totalAmountField.setPromptText("Enter Total Amount");
-        totalAmountField.setStyle("-fx-font-size: 14px;");
-
-        Button saveButton = new Button("Save");
-        saveButton.setStyle("-fx-background-color: #0078D7; -fx-text-fill: white; -fx-font-size: 14px; -fx-pref-width: 100px;");
-        saveButton.setOnAction(e -> {
-            String customerName = customerNameField.getText();
-            LocalDate orderDate = orderDatePicker.getValue();
-            double totalAmount;
-
-            // Validate total amount input
-            try {
-                totalAmount = Double.parseDouble(totalAmountField.getText());
-            } catch (NumberFormatException ex) {
-                showAlert(Alert.AlertType.ERROR, "Invalid Input", "Total amount must be a valid number.");
-                return;
-            }
-
-            // Update the database
-            try (Connection conn = getConnection();
-                 PreparedStatement pstmt = conn.prepareStatement(
-                         "UPDATE orders SET customer_name = ?, order_date = ?, total_amount = ? WHERE id = ?")) {
-                pstmt.setString(1, customerName);
-                pstmt.setDate(2, Date.valueOf(orderDate));
-                pstmt.setDouble(3, totalAmount);
-                pstmt.setInt(4, order.getOrderId());
-                pstmt.executeUpdate();
-
-                // Update the TableView
-                order.setCustomerName(customerName);
-                order.setOrderDate(orderDate);
-                order.setTotalAmount(totalAmount);
-                orders.set(orders.indexOf(order), order);
-
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Order updated successfully!");
-                dialog.close();
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to update order.");
-                ex.printStackTrace();
-            }
-        });
-
-        // Labels with bold styling
-        Label customerNameLabel = new Label("Customer Name:");
-        customerNameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-
-        Label orderDateLabel = new Label("Order Date:");
-        orderDateLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-
-        Label totalAmountLabel = new Label("Total Amount:");
-        totalAmountLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
-
-        // Layout for the dialog
-        VBox layout = new VBox(15,
-                customerNameLabel, customerNameField,
-                orderDateLabel, orderDatePicker,
-                totalAmountLabel, totalAmountField,
-                saveButton
-        );
-        layout.setAlignment(Pos.CENTER);
-        layout.setPadding(new Insets(20));
-        layout.setStyle("-fx-background-color: #f4f4f4; -fx-border-color: #dcdcdc; -fx-border-radius: 5; -fx-border-width: 1;");
-
-        // Scene and stage
-        Scene scene = new Scene(layout, 350, 400);
-        dialog.setScene(scene);
-        dialog.show();
-    }
-
     private boolean deleteOrderFromDatabase(Order order) {
         try (Connection conn = getConnection();
              PreparedStatement pstmt = conn.prepareStatement("DELETE FROM orders WHERE id = ?")) {
@@ -660,7 +599,8 @@ public class Main extends Application {
         return false; // Return false if the operation failed
     }
 
-    private Order showAddOrderDialog(ObservableList<Product> availableProducts) {
+    private void showAddOrderDialog(ObservableList<Order> orders, ObservableList<Product> availableProducts, TableView<Order> orderTable) {
+        Order newOrder = new Order();
         Stage dialog = new Stage();
         dialog.setTitle("Add New Order");
         dialog.setResizable(false);
@@ -682,6 +622,18 @@ public class Main extends Application {
 
         // Product selection components
         ComboBox<Product> productComboBox = new ComboBox<>(availableProducts);
+        // To get product Name
+        productComboBox.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(Product product) {
+                return product != null ? product.getName() : "";
+            }
+
+            @Override
+            public Product fromString(String string) {
+                return null; // Not used in this context
+            }
+        });
         productComboBox.setPromptText("Select Product");
         productComboBox.setStyle("-fx-font-size: 14px;");
 
@@ -692,20 +644,56 @@ public class Main extends Application {
         Button addProductButton = new Button("Add Product");
         addProductButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 14px; -fx-pref-width: 120px;");
 
+        Queue<Product> orderProducts = new LinkedList<>();
+        Queue<Integer> orderProductsFreq = new LinkedList<>();
+
         addProductButton.setOnAction(e -> {
+            try {
+                boolean isCustomerExist = isCustomerExist(conn, customerNameField.getText().trim());
+                if (!isCustomerExist){
+                    showAlert(Alert.AlertType.ERROR, "Invalid Input", "Customer Field Is Not Defined !");
+                    return;
+                }
+
+            } catch (SQLException ex) {
+                showAlert(Alert.AlertType.ERROR, "Fetch Issue", "Can't Check For Customer !");
+            }
+
+            if (orderDatePicker.getValue() == null){
+                showAlert(Alert.AlertType.ERROR, "Invalid Input", "Date Field Is Not Defined !");
+                return;
+            }
+
             Product selectedProduct = productComboBox.getValue();
             String unitsText = unitsField.getText().trim();
             int units;
 
             // Validate product and units
             if (selectedProduct == null) {
-                showAlert(Alert.AlertType.ERROR, "Invalid Input", "Please select a product and Customer");
+                showAlert(Alert.AlertType.ERROR, "Invalid Input", "Please select a product");
                 return;
             }
 
             try {
                 units = Integer.parseInt(unitsText);
                 if (units <= 0) throw new NumberFormatException();
+                // Check if units number is valid in database
+                try {
+                    PreparedStatement checkUnits = conn.prepareStatement("SELECT 1 FROM products WHERE CAST(name AS NVARCHAR(MAX)) = ? AND quantity >= ? ");
+                    checkUnits.setString(1, selectedProduct.getName());
+                    checkUnits.setInt(2, units);
+                    boolean isAvailable = checkUnits.executeQuery().next();
+
+                    if (!isAvailable){
+                        showAlert(Alert.AlertType.ERROR, "Out of Stock", "Units number you want exceeds the stock units of this product");
+                        return;
+                    }
+
+                } catch(SQLException sqlEx){
+                    showAlert(Alert.AlertType.ERROR, "Fetching Issue", "Can't fetch product available quantity !");
+                    return;
+                }
+
             } catch (NumberFormatException ex) {
                 showAlert(Alert.AlertType.ERROR, "Invalid Input", "Units must be a positive integer.");
                 return;
@@ -714,6 +702,8 @@ public class Main extends Application {
             // Calculate and update total amount
             double productCost = selectedProduct.getPrice() * units;
             double currentTotal = totalAmountField.getText().isEmpty() ? 0 : Double.parseDouble(totalAmountField.getText());
+            orderProducts.add(selectedProduct);
+            orderProductsFreq.add(units);
             totalAmountField.setText(String.valueOf(currentTotal + productCost));
 
             // Reset product and units fields
@@ -726,31 +716,72 @@ public class Main extends Application {
 
         saveButton.setOnAction(e -> {
             String customerName = customerNameField.getText().trim();
-            LocalDate orderDate = orderDatePicker.getValue();
-            double totalAmount;
             try {
-                PreparedStatement checkCustomer = conn.prepareStatement("SELECT 1 as exp FROM customers WHERE name = ?", Statement.RETURN_GENERATED_KEYS);
-                checkCustomer.setString(1, customerName);
-                boolean isCustomerExist = checkCustomer.executeQuery().next();
+                Date date = java.sql.Date.valueOf(orderDatePicker.getValue());
+                try {
+                    PreparedStatement checkCustomer = conn.prepareStatement("SELECT id as exp FROM customers WHERE CAST(name AS NVARCHAR(MAX)) = ?", Statement.RETURN_GENERATED_KEYS);
+                    checkCustomer.setString(1, customerName);
+                    ResultSet res = checkCustomer.executeQuery();
+                    boolean isCustomerExist = res.next();
 
-                if (isCustomerExist) {
-                    // Validate total amount input
-                    try {
-                        totalAmount = Double.parseDouble(totalAmountField.getText());
-                    } catch (NumberFormatException ex) {
-                        showAlert(Alert.AlertType.ERROR, "Invalid Input", "Total amount must be a valid number.");
-                        return;
+                    if (isCustomerExist) {
+                        PreparedStatement insertOrder = conn.prepareStatement("INSERT INTO orders (customer_id, order_date, total_amount) VALUES (?, ?, ?)");
+                        insertOrder.setInt(1, res.getInt(1));
+                        insertOrder.setDate(2, date);
+                        try {
+                            insertOrder.setDouble(3, Double.parseDouble(totalAmountField.getText()));
+                        }catch(NumberFormatException numberEx) {
+                            showAlert(Alert.AlertType.ERROR, "Invalid Input", "No Products Are Selected");
+                        }
+                        insertOrder.executeUpdate();
+
+                        PreparedStatement getOrderId = conn.prepareStatement("SELECT TOP 1 id FROM orders ORDER BY id DESC");
+                        ResultSet lastOrder = getOrderId.executeQuery();
+                        lastOrder.next();
+                        int id = lastOrder.getInt(1);
+
+                        newOrder.setOrderId(id);
+                        newOrder.setCustomerName(customerName);
+                        newOrder.setOrderDate(date);
+                        newOrder.setTotalAmount(Double.parseDouble(totalAmountField.getText()));
+
+
+                        while (!orderProducts.isEmpty() && !orderProductsFreq.isEmpty()) {
+                            Product product = orderProducts.poll();
+                            int units = orderProductsFreq.poll();
+                            // minus each product quantity from database
+                            PreparedStatement updateQuantity = conn.prepareStatement("UPDATE products SET quantity = ? WHERE CAST(name AS NVARCHAR(MAX)) = ?");
+                            updateQuantity.setInt(1, product.getQuantity() - units);
+                            updateQuantity.setString(2, product.getName());
+
+                            int rowsAffected = updateQuantity.executeUpdate();
+
+                            if (rowsAffected == 0) {
+                                showAlert(Alert.AlertType.ERROR, "Database Error", "Failed to update quantity in the database.");
+                                return;
+                            }
+                            // Create order items
+                            PreparedStatement insertOrderItems = conn.prepareStatement("INSERT INTO order_items (order_id, product_id, quantity, price) " +
+                                    "VALUES (?, ?, ?, ?)");
+                            insertOrderItems.setInt(1, newOrder.getOrderId());
+                            insertOrderItems.setInt(2, product.getProductId());
+                            insertOrderItems.setInt(3, units);
+                            insertOrderItems.setDouble(4, product.getPrice() * units);
+                        }
+                        orders.add(newOrder);
+                        orderTable.refresh();
+                        showAlert(Alert.AlertType.INFORMATION, "Success", "New Order Added successfully!");
+                        dialog.close();
+
+                    } else {
+                        showAlert(Alert.AlertType.ERROR, "Invalid Input", "Customer Doesn't Exist");
+                        customerNameField.clear();
                     }
-
-                    // Show success message and close dialog
-                    showAlert(Alert.AlertType.INFORMATION, "Success", "Order added successfully!");
-                    dialog.close();
-                }else{
-                    showAlert(Alert.AlertType.ERROR, "Invalid Input", "Customer Doesn't Exist");
-                    customerNameField.clear();
+                } catch (SQLException ex) {
+                    showAlert(Alert.AlertType.ERROR, "Fetching Issue", "Can't fetch customer from database");
                 }
-            } catch (SQLException ex) {
-                throw new RuntimeException(ex);
+            }catch (NullPointerException nullExp) {
+                showAlert(Alert.AlertType.ERROR, "Invalid Input", "Customer Name and Order Date Are Not Valid");
             }
 
         });
@@ -768,6 +799,19 @@ public class Main extends Application {
         Label productLabel = new Label("Product:");
         productLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
+        TextField priceTextField = new TextField();
+        priceTextField.setEditable(false); // Make it read-only
+        priceTextField.setPromptText("Product Price");
+        // Add price field for product
+        productComboBox.valueProperty().addListener((obs, oldProduct, newProduct) -> {
+            if (newProduct != null) {
+                priceTextField.setText(String.format("%.2f", newProduct.getPrice()));
+            } else {
+                priceTextField.clear();
+            }
+        });
+        HBox productRoot = new HBox(10, productComboBox, priceTextField);
+
         Label unitsLabel = new Label("Units:");
         unitsLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
@@ -775,7 +819,7 @@ public class Main extends Application {
         VBox layout = new VBox(15,
                 customerNameLabel, customerNameField,
                 orderDateLabel, orderDatePicker,
-                productLabel, productComboBox,
+                productLabel, productRoot,
                 unitsLabel, unitsField,
                 addProductButton,
                 totalAmountLabel, totalAmountField,
@@ -789,8 +833,6 @@ public class Main extends Application {
         Scene scene = new Scene(layout, 400, 500);
         dialog.setScene(scene);
         dialog.showAndWait();
-
-        return null; // Placeholder for returning the created order
     }
 
 
@@ -835,6 +877,7 @@ public class Main extends Application {
             String query = searchField.getText().toLowerCase().trim();
             if (query.isEmpty()) {
                 customerTable.setItems(customers);
+                customerTable.refresh();
             } else {
                 ObservableList<Customer> filteredCustomers = FXCollections.observableArrayList();
                 for (Customer customer : customers) {
@@ -845,6 +888,7 @@ public class Main extends Application {
                     }
                 }
                 customerTable.setItems(filteredCustomers);
+                customerTable.refresh();
             }
         });
 
@@ -880,7 +924,7 @@ public class Main extends Application {
     private void addCustomerButtonsColumn(TableView<Customer> customerTable, ObservableList<Customer> customers) {
         // Edit Button Column
         TableColumn<Customer, Void> editColumn = new TableColumn<>("Edit");
-        editColumn.setCellFactory(param -> new TableCell<Customer, Void>() {
+        editColumn.setCellFactory(param -> new TableCell<>() {
             private final Button editButton = new Button("Edit");
 
             {
@@ -1350,14 +1394,13 @@ public class Main extends Application {
         label.setFont(Font.font("Arial", bold ? FontWeight.BOLD : FontWeight.NORMAL, fontSize));
         label.setTextFill(Color.web(color));
     }
-    private ObservableList<Product> getProductList(){ // connect and fetch Data
+    private ObservableList<Product> getProductList() { // connect and fetch Data
         ObservableList<Product> productsList = FXCollections.observableArrayList();;
-        try (Connection conn = getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery("SELECT name, price, quantity, category FROM products")) {
+        try (Connection conn = getConnection(); Statement stmt = conn.createStatement(); ResultSet rs = stmt.executeQuery("SELECT id, name, price, quantity, category FROM products")) {
 
             while (rs.next()) {
                 productsList.add(new Product(
+                        rs.getInt("id"), // ID
                         rs.getString("name"),
                         rs.getDouble("price"),
                         rs.getInt("quantity"),
@@ -1368,5 +1411,11 @@ public class Main extends Application {
             e.printStackTrace();
         }
         return productsList;
+    }
+    private boolean isCustomerExist(Connection conn, String name) throws SQLException {
+        PreparedStatement checkCustomer = conn.prepareStatement("SELECT 1 exp FROM customers WHERE CAST(name AS NVARCHAR(MAX)) = ?", Statement.RETURN_GENERATED_KEYS);
+        checkCustomer.setString(1, name);
+        ResultSet res = checkCustomer.executeQuery();
+        return res.next();
     }
 }
