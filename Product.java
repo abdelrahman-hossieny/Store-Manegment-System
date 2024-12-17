@@ -16,6 +16,13 @@ public class Product {
         this.quantity = quantity;
         this.category = category;
     }
+        // Constructor
+    public Product(String name, double price, int quantity, String category) {
+        this.name = name;
+        this.price = price;
+        this.quantity = quantity;
+        this.category = category;
+    }
 
     // Getters
     public int getProductId() {
