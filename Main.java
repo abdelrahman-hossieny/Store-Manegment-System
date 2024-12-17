@@ -496,7 +496,7 @@ public class Main extends Application {
         TableColumn<Order, LocalDate> orderDateCol = new TableColumn<>("Order Date");
         orderDateCol.setCellValueFactory(new PropertyValueFactory<>("orderDate"));
 
-        TableColumn<Order, Double> totalAmountCol = new TableColumn<>("Total Amount");
+        TableColumn<Order, Double> totalAmountCol = new TableColumn<>("Total Price");
         totalAmountCol.setCellValueFactory(new PropertyValueFactory<>("totalAmount"));
 
 
@@ -719,21 +719,27 @@ public class Main extends Application {
             try {
                 Date date = java.sql.Date.valueOf(orderDatePicker.getValue());
                 try {
+                    // Check Existence of customer
                     PreparedStatement checkCustomer = conn.prepareStatement("SELECT id as exp FROM customers WHERE CAST(name AS NVARCHAR(MAX)) = ?", Statement.RETURN_GENERATED_KEYS);
                     checkCustomer.setString(1, customerName);
                     ResultSet res = checkCustomer.executeQuery();
+
                     boolean isCustomerExist = res.next();
+                    int customerId = res.getInt(1);
 
                     if (isCustomerExist) {
+                        // Insert New Order for Customer
                         PreparedStatement insertOrder = conn.prepareStatement("INSERT INTO orders (customer_id, order_date, total_amount) VALUES (?, ?, ?)");
-                        insertOrder.setInt(1, res.getInt(1));
+                        insertOrder.setInt(1, customerId);
                         insertOrder.setDate(2, date);
-                        try {
-                            insertOrder.setDouble(3, Double.parseDouble(totalAmountField.getText()));
-                        }catch(NumberFormatException numberEx) {
-                            showAlert(Alert.AlertType.ERROR, "Invalid Input", "No Products Are Selected");
-                        }
+                        insertOrder.setDouble(3, Double.parseDouble(totalAmountField.getText()));
+
+                        // Update Customer Orders Count
+                        PreparedStatement updateOrderCount = conn.prepareStatement("Update customers SET orders_count += 1 WHERE id = ?");
+                        updateOrderCount.setInt(1, customerId);
+
                         insertOrder.executeUpdate();
+                        updateOrderCount.executeUpdate();
 
                         PreparedStatement getOrderId = conn.prepareStatement("SELECT TOP 1 id FROM orders ORDER BY id DESC");
                         ResultSet lastOrder = getOrderId.executeQuery();
@@ -786,7 +792,7 @@ public class Main extends Application {
 
         });
 
-        // Styling
+
         Label customerNameLabel = new Label("Customer Name:");
         customerNameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
 
@@ -901,7 +907,7 @@ public class Main extends Application {
         HBox topBar = new HBox(10, searchField, searchButton, addCustomerButton);
         topBar.setAlignment(Pos.CENTER_LEFT);
         topBar.setPadding(new Insets(10, 10, 10, 10));
-        HBox.setHgrow(searchField, Priority.ALWAYS);
+        //HBox.setHgrow(searchField, Priority.ALWAYS);
 
         // Add Buttons Column
         addCustomerButtonsColumn(customerTable, customers);
@@ -1145,8 +1151,6 @@ public class Main extends Application {
         Label usernameLabel = new Label("Username:");
         TextField usernameField = createStyledTextField("Enter customer username");
 
-        Label ordersCountLabel = new Label("Orders Count:");
-        TextField ordersCountField = createStyledTextField("Enter orders count");
 
         Label statusLabel = new Label("Status:");
         TextField statusField = createStyledTextField("Enter customer status");
@@ -1181,27 +1185,23 @@ public class Main extends Application {
             String name = nameField.getText().trim();
             String email = emailField.getText().trim();
             String username = usernameField.getText().trim();
-            String ordersCountText = ordersCountField.getText().trim();
             String status = statusField.getText().trim();
 
             // Validate inputs
-            if (name.isEmpty() || email.isEmpty() || username.isEmpty() || ordersCountText.isEmpty() || status.isEmpty()) {
+            if (name.isEmpty() || email.isEmpty() || username.isEmpty() || status.isEmpty()) {
                 showAlert(Alert.AlertType.ERROR, "Validation Error", "All fields must be filled!");
                 return;
             }
 
             try {
-                int ordersCount = Integer.parseInt(ordersCountText);
-
                 // Save to the database
                 try (Connection conn = getConnection();
                      PreparedStatement pstmt = conn.prepareStatement(
-                             "INSERT INTO customers (name, email, username, orders_count, status) VALUES (?, ?, ?, ?, ?)")) {
+                             "INSERT INTO customers (name, email, username, orders_count, status) VALUES (?, ?, ?, 0, ?)")) {
                     pstmt.setString(1, name);
                     pstmt.setString(2, email);
                     pstmt.setString(3, username);
-                    pstmt.setInt(4, ordersCount);
-                    pstmt.setString(5, status);
+                    pstmt.setString(4, status);
                     pstmt.executeUpdate();
 
                     PreparedStatement getCustomerId = conn.prepareStatement("SELECT id FROM customers WHERE CAST(name AS NVARCHAR(MAX)) = ? ");
@@ -1211,7 +1211,7 @@ public class Main extends Application {
                     int id = res.getInt(1);
 
                     // Update table and close dialog
-                    customers.add(new Customer(id, name, email, username, ordersCount, status)); // ID set to 0 for simplicity
+                    customers.add(new Customer(id, name, email, username, 0, status)); // ID set to 0 for simplicity
                     showAlert(Alert.AlertType.INFORMATION, "Success", "Customer added successfully!");
                     dialog.close();
                 }
@@ -1239,9 +1239,6 @@ public class Main extends Application {
 
         form.add(usernameLabel, 0, 2);
         form.add(usernameField, 1, 2);
-
-        form.add(ordersCountLabel, 0, 3);
-        form.add(ordersCountField, 1, 3);
 
         form.add(statusLabel, 0, 4);
         form.add(statusField, 1, 4);
