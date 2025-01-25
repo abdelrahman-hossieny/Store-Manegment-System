@@ -23,11 +23,11 @@ The **Store Management System** is a Java-based application designed to manage p
 ## Screenshots
 
 ### Login Page
-![Image](https://github.com/user-attachments/assets/6d2bd16a-6495-40a2-bb2d-24b55d0ee602)
-![Image](https://github.com/user-attachments/assets/d290c3df-248b-4903-b5c1-28efbea95199)
-![Image](https://github.com/user-attachments/assets/6f7cd056-dfa5-4cd2-9301-35936062e6b9)
-![Image](https://github.com/user-attachments/assets/48e22a97-6aaa-4547-b3ce-14a2b1e54869)
 ![Image](https://github.com/user-attachments/assets/e6d06d2a-dc86-4032-83f7-41c0d7780b1e)
+
+
+
+
 ![Image](https://github.com/user-attachments/assets/367576a3-9ffe-4565-9124-75201c36ad17)
 ![Image](https://github.com/user-attachments/assets/c3e834b8-44aa-4c17-b902-0251a8771625)
 ![Image](https://github.com/user-attachments/assets/cc3b1321-3fba-4303-a7e2-8baa8581850d)
@@ -36,16 +36,16 @@ The **Store Management System** is a Java-based application designed to manage p
 ![Home Page](screenshots/home.png)
 
 ### Product Management
-![Product Management](screenshots/products.png)
+![Image](https://github.com/user-attachments/assets/6d2bd16a-6495-40a2-bb2d-24b55d0ee602)
 
 ### Order Management
-![Order Management](screenshots/orders.png)
+![Image](https://github.com/user-attachments/assets/d290c3df-248b-4903-b5c1-28efbea95199)
 
 ### Customer Management
-![Customer Management](screenshots/customers.png)
+![Image](https://github.com/user-attachments/assets/6f7cd056-dfa5-4cd2-9301-35936062e6b9)
 
 ### Staff Management
-![Staff Management](screenshots/staff.png)
+![Image](https://github.com/user-attachments/assets/48e22a97-6aaa-4547-b3ce-14a2b1e54869)
 
 ---
 
