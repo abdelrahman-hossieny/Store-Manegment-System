@@ -23,7 +23,7 @@ The **Store Management System** is a Java-based application designed to manage p
 ## Screenshots
 
 ### Login Page
-![Login Page](screenshots/login.png)
+[![Login Page](screenshots/login.png)](https://github.com/abdelrahman-hossieny/Store-Manegment-System/blob/main/images/Login%20page.png?raw=true)
 
 ### Home Page
 ![Home Page](screenshots/home.png)
