@@ -25,15 +25,8 @@ The **Store Management System** is a Java-based application designed to manage p
 ### Login Page
 ![Image](https://github.com/user-attachments/assets/e6d06d2a-dc86-4032-83f7-41c0d7780b1e)
 
-
-
-
-![Image](https://github.com/user-attachments/assets/367576a3-9ffe-4565-9124-75201c36ad17)
-![Image](https://github.com/user-attachments/assets/c3e834b8-44aa-4c17-b902-0251a8771625)
-![Image](https://github.com/user-attachments/assets/cc3b1321-3fba-4303-a7e2-8baa8581850d)
-
 ### Home Page
-![Home Page](screenshots/home.png)
+![Image](https://github.com/user-attachments/assets/cc3b1321-3fba-4303-a7e2-8baa8581850d)
 
 ### Product Management
 ![Image](https://github.com/user-attachments/assets/6d2bd16a-6495-40a2-bb2d-24b55d0ee602)
@@ -58,17 +51,3 @@ The **Store Management System** is a Java-based application designed to manage p
 
 ---
 
-## Installation
-
-### Prerequisites
-
-- Java Development Kit (JDK) 17 or higher.
-- SQL Server 2019 or higher.
-- JavaFX SDK (included in the project or downloaded separately).
-
-### Steps to Run the Project
-
-1. **Clone the Repository**:
-   ```bash
-   git clone https://github.com/your-username/store-management-system.git
-   cd store-management-system
