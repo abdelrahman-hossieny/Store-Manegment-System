@@ -19,6 +19,14 @@ The **Store Management System** is a Java-based application designed to manage p
 - **Database Integration**: Connects to a SQL Server database for persistent data storage.
 
 ---
+## Technologies Used
+
+- **Java**: Core programming language.
+- **JavaFX**: For building the graphical user interface (GUI).
+- **SQL Server**: Database for storing product, order, customer, and staff information.
+- **JDBC**: For connecting the Java application to the SQL Server database.
+
+---
 
 ## Screenshots
 
@@ -42,12 +50,5 @@ The **Store Management System** is a Java-based application designed to manage p
 
 ---
 
-## Technologies Used
 
-- **Java**: Core programming language.
-- **JavaFX**: For building the graphical user interface (GUI).
-- **SQL Server**: Database for storing product, order, customer, and staff information.
-- **JDBC**: For connecting the Java application to the SQL Server database.
-
----
 
